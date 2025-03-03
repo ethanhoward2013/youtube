@@ -2,14 +2,25 @@
   "version": 2,
   "builds": [
     {
-      "src": "pages/api/download.js",
+      "src": "api/**/*.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "public/**/*",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
-      "src": "/api/download",
-      "dest": "/api/download.js"
+      "src": "/api/hello",
+      "dest": "/api/hello.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
     }
-  ]
+  ],
+  "env": {
+    "MY_SECRET_KEY": "@my-secret-key"
+  }
 }
