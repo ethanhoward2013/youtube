@@ -1,0 +1,106 @@
+import { useState } from "react";
+import { exec } from "child_process";
+import path from "path";
+import fs from "fs";
+import { promisify } from "util";
+
+const execPromise = promisify(exec);
+
+export default function Home(req, res) {
+  if (req.method === "POST") {
+    const { url, format } = req.body;
+    if (!url || !["mp3", "mp4"].includes(format)) {
+      return res.status(400).json({ success: false, message: "Invalid request parameters" });
+    }
+
+    const outputDir = path.join(process.cwd(), "public", "downloads");
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+    const outputFile = path.join(outputDir, `output.${format}`);
+    const command = `yt-dlp -x --audio-format ${format} -o "${outputFile}" ${url}`;
+
+    execPromise(command)
+      .then(() => {
+        res.status(200).json({ success: true, downloadUrl: `/downloads/output.${format}` });
+        setTimeout(() => {
+          if (fs.existsSync(outputFile)) {
+            fs.unlinkSync(outputFile);
+          }
+        }, 5 * 60 * 1000);
+      })
+      .catch(() => {
+        res.status(500).json({ success: false, message: "Failed to download audio." });
+      });
+  }
+
+  const [url, setUrl] = useState("");
+  const [format, setFormat] = useState("mp3");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleDownload = async () => {
+    if (!url) {
+      setError("Please enter a YouTube URL");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    
+    try {
+      const response = await fetch("/api/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, format }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        window.location.href = data.downloadUrl;
+      } else {
+        setError(data.message || "Download failed.");
+      }
+    } catch (err) {
+      setError("Something went wrong.");
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen p-4">
+      <h1 className="text-2xl font-bold">YouTube Audio Downloader</h1>
+      <input
+        type="text"
+        placeholder="Enter YouTube URL"
+        className="mt-4 p-2 border rounded w-80"
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+      />
+      <div className="mt-2">
+        <label>
+          <input
+            type="radio"
+            value="mp3"
+            checked={format === "mp3"}
+            onChange={() => setFormat("mp3")}
+          /> MP3
+        </label>
+        <label className="ml-4">
+          <input
+            type="radio"
+            value="mp4"
+            checked={format === "mp4"}
+            onChange={() => setFormat("mp4")}
+          /> MP4
+        </label>
+      </div>
+      <button
+        onClick={handleDownload}
+        className="mt-4 px-4 py-2 bg-blue-500 text-white rounded"
+        disabled={loading}
+      >
+        {loading ? "Downloading..." : "Download"}
+      </button>
+      {error && <p className="mt-2 text-red-500">{error}</p>}
+    </div>
+  );
+}
