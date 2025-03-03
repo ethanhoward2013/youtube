@@ -1,38 +1,6 @@
 import { useState } from "react";
-import { exec } from "child_process";
-import path from "path";
-import fs from "fs";
-import { promisify } from "util";
 
-const execPromise = promisify(exec);
-
-export default function Home(req, res) {
-  if (req.method === "POST") {
-    const { url, format } = req.body;
-    if (!url || !["mp3", "mp4"].includes(format)) {
-      return res.status(400).json({ success: false, message: "Invalid request parameters" });
-    }
-
-    const outputDir = path.join(process.cwd(), "public", "downloads");
-    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
-
-    const outputFile = path.join(outputDir, `output.${format}`);
-    const command = `yt-dlp -x --audio-format ${format} -o "${outputFile}" ${url}`;
-
-    execPromise(command)
-      .then(() => {
-        res.status(200).json({ success: true, downloadUrl: `/downloads/output.${format}` });
-        setTimeout(() => {
-          if (fs.existsSync(outputFile)) {
-            fs.unlinkSync(outputFile);
-          }
-        }, 5 * 60 * 1000);
-      })
-      .catch(() => {
-        res.status(500).json({ success: false, message: "Failed to download audio." });
-      });
-  }
-
+export default function Home() {
   const [url, setUrl] = useState("");
   const [format, setFormat] = useState("mp3");
   const [loading, setLoading] = useState(false);
@@ -45,7 +13,7 @@ export default function Home(req, res) {
     }
     setLoading(true);
     setError("");
-    
+
     try {
       const response = await fetch("/api/download", {
         method: "POST",
@@ -104,3 +72,4 @@ export default function Home(req, res) {
     </div>
   );
 }
+
